@@ -10,6 +10,16 @@ void indent(int level)
 	}
 }
 
+void pesc(char* p)
+{
+	for ( ; *p; p++) {
+		if (*p == '\\' || *p == '"') {
+			putchar('\\');
+		} 
+		putchar(*p);
+	}
+}
+
 void pprint(sexp_t* ex, int level)
 {
 	if (!ex) return;
@@ -28,7 +38,9 @@ void pprint(sexp_t* ex, int level)
 	if (ex->kind == SEXP_ATOM) {
 		indent(level);
 		if (ex->u.atom.quoted) {
-			printf("\"%s\"\n", ex->u.atom.start);
+			putchar('"');
+			pesc(ex->u.atom.start);
+			putchar('"');
 		} else {
 			puts(ex->u.atom.start);
 		}
