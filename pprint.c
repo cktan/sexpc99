@@ -25,14 +25,13 @@ void pprint(sexp_t* ex, int level)
 		return;
 	}
 
-	if (ex->kind == SEXP_QSTRING) {
+	if (ex->kind == SEXP_ATOM) {
 		indent(level);
-		printf("\"%s\"\n", ex->u.qstring.start);
-		return;
-	}
-	if (ex->kind == SEXP_SYMBOL) {
-		indent(level);
-		puts(ex->u.qstring.start);
+		if (ex->u.atom.quoted) {
+			printf("\"%s\"\n", ex->u.atom.start);
+		} else {
+			puts(ex->u.atom.start);
+		}
 		return;
 	}
 }
