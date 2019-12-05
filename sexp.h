@@ -10,10 +10,10 @@ struct sexp_t {
 	sexp_kind_t kind;			/* list or atom */
 	union {
 		struct {
-			char* ptr;			/* point to first char of atom */
-			char* term;			/* point to NUL term of atom */
 			char  quoted;		/* true if atom was quoted */
-			char  escaped;		/* true if atom needs unescaping */
+			char* ptr;			/* point to first char of atom */
+			char* term;			/* (internal) point to NUL term of atom */
+			char  escaped;		/* (internal) true if atom needs unescaping */
 		} atom;
 		struct {
 			sexp_t** elem;		/* elem[0..top) are valid */
@@ -28,7 +28,7 @@ struct sexp_t {
  * into buf[], which is modified in place by unescaping and terminating 
  * the atoms with NUL.
  *
- * Caller must call sexp_free(ptr) to after use.
+ * Caller must call sexp_free(ptr) after use.
  */
 extern sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen);
 
