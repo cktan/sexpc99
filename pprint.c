@@ -37,7 +37,7 @@ void pprint(sexp_t* ex, int level)
 }
 
 
-char* readstdin()
+char* read_stdin()
 {
 	char* buf = 0;
 	int top = 0;
@@ -83,7 +83,7 @@ char* readstdin()
 
 int main()
 {
-	char* buf = readstdin();
+	char* buf = read_stdin();
 	char errmsg[200];
 	sexp_t* ex = sexp_parse(buf, errmsg, sizeof(errmsg));
 	if (!ex) {
