@@ -7,7 +7,7 @@ typedef enum sexp_kind_t sexp_kind_t;
 
 typedef struct sexp_t sexp_t;
 struct sexp_t {
-	sexp_kind_t kind;
+	sexp_kind_t kind;			/* list or atom */
 	union {
 		struct {
 			char* ptr;			/* point to first char of atom */
@@ -16,16 +16,27 @@ struct sexp_t {
 			char  escaped;		/* true if atom needs unescaping */
 		} atom;
 		struct {
-			sexp_t** elem;
+			sexp_t** elem;		/* elem[0..top) are valid */
 			int top, max;
 		} list;
 	} u;
 };
 
 
+/**
+ * Parse buf and return a pointer to a s-exp tree with atoms pointing
+ * into buf[], which is modified in place by unescaping and terminating 
+ * the atoms with NUL.
+ *
+ * Caller must call sexp_free(ptr) to after use.
+ */
 extern sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen);
-extern void sexp_free(sexp_t* ptr);
 
+
+/**
+ *  Free the memory allocated in a s-exp tree.
+ */
+extern void sexp_free(sexp_t* ptr);
 
 
 #endif /* SEXP_H */

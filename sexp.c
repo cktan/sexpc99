@@ -5,26 +5,37 @@
 #include <assert.h>
 #include "sexp.h"
 
+#define E_OUTOFMEMORY "out of memory"
+#define E_BADESCAPE   "bad escape"
+#define E_ENDQUOTE    "missing end quote in string"
+#define E_BADSYMBOL   "bad symbol"
+#define E_UNEXPECTED  "unexpected char"
 
-static inline sexp_t* mksexp(char* eb)
+
+
+static inline sexp_t* mksexp(const char** eb)
 {
 	sexp_t* p = calloc(sizeof(*p), 1);
 	if (!p) {
-		sprintf(eb, "out of memory");
+		*eb = E_OUTOFMEMORY;
 		return 0;
 	}
 	return p;
 }
 
-static sexp_t* reterr(const char* msg, const char* s, char** e, char* eb, sexp_t* ex)
+static sexp_t* reterr(const char* msg, const char* s, char** e, const char** eb, sexp_t* ex)
 {
 	sexp_free(ex);
-	sprintf(eb, "%s", msg);
+	*eb = msg;
 	*(const char**) e = s;
 	return 0;
 }
 
-static sexp_t* parse_string(char* s, char** e, char* eb)
+/* Parse a quoted string at s. 
+ * On success, return the s-exp; also the start of next expression in e.
+ * On error, return NULL, and the error message in eb.
+ */
+static sexp_t* parse_qstring(char* s, char** e, const char** eb)
 {
 	assert(*s == '"');
 	*e = 0;
@@ -45,12 +56,12 @@ static sexp_t* parse_string(char* s, char** e, char* eb)
 				s++;
 				continue;
 			}
-			return reterr("bad escape", s, e, eb, ex);
+			return reterr(E_BADESCAPE, s, e, eb, ex);
 		}
 	}
 
 	if (*s != '"') {
-		return reterr("unterminated string", s, e, eb, ex);
+		return reterr(E_ENDQUOTE, s, e, eb, ex);
 	}
 	
 	s++;
@@ -60,7 +71,11 @@ static sexp_t* parse_string(char* s, char** e, char* eb)
 }
 
 
-static sexp_t* parse_symbol(char* s, char** e, char* eb)
+/* Parse a symbol at s. 
+ * On success, return the s-exp; also the start of next expression in e.
+ * On error, return NULL, and the error message in eb.
+ */
+static sexp_t* parse_symbol(char* s, char** e, const char** eb)
 {
 	sexp_t* ex = mksexp(eb);
 	if (!ex)
@@ -73,8 +88,7 @@ static sexp_t* parse_symbol(char* s, char** e, char* eb)
 			break;
 		if (isalnum(*s) || strchr("+-_.", *s))
 			continue;
-		sprintf(eb, "bad symbol");
-		return reterr("bad symbol", s, e, eb, ex);
+		return reterr(E_BADSYMBOL, s, e, eb, ex);
 	}
 
 	ex->u.atom.term = s;
@@ -83,8 +97,10 @@ static sexp_t* parse_symbol(char* s, char** e, char* eb)
 }
 
 
+/* Append kid to end of list in ex. */
 static sexp_t* append(sexp_t* ex, sexp_t* kid)
 {
+	/* expand? */
 	if (ex->u.list.top == ex->u.list.max) {
 		int n = ex->u.list.max + 8;
 		sexp_t** p = realloc(ex->u.list.elem, n * sizeof(sexp_t*));
@@ -94,12 +110,17 @@ static sexp_t* append(sexp_t* ex, sexp_t* kid)
 		ex->u.list.max = n;
 	}
 
+	/* add to end */
 	ex->u.list.elem[ex->u.list.top++] = kid;
 	return ex;
 }
 
 
-static sexp_t* parse_list(char* s, char** e, char* eb)
+/* Parse a list at s. 
+ * On success, return the s-exp; also the start of next expression in e.
+ * On error, return NULL, and the error message in eb.
+ */
+static sexp_t* parse_list(char* s, char** e, const char** eb)
 {
 	sexp_t* ex = mksexp(eb);
 	if (!ex)
@@ -120,19 +141,19 @@ static sexp_t* parse_list(char* s, char** e, char* eb)
 
 		sexp_t* kid = 0;
 		if (*s == '"') 
-			kid = parse_string(s, e, eb);
+			kid = parse_qstring(s, e, eb);
 		else if (*s == '(') 
 			kid = parse_list(s, e, eb);
 		else 
 			kid = parse_symbol(s, e, eb);
 		
-		if (!kid) {
+		if (! kid) {
 			sexp_free(ex);
 			return 0;
 		}
 		
 		if (! append(ex, kid)) {
-			return reterr("out of memory", s, e, eb, ex);
+			return reterr(E_OUTOFMEMORY, s, e, eb, ex);
 		}
 		
 		s = *e;
@@ -199,21 +220,24 @@ static sexp_t* touchup(sexp_t* ex)
 }
 
 
+
 sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen)
 {
 	char* s = buf;
 	char* e = 0;
 	sexp_t* ex = 0;
-	char eb[100];
-	
+	const char* eb = 0;
+
+	// skip whitespace
 	for ( ; *s && isspace(*s); s++);
 
+	// parse
 	if (*s == '(') 
-		ex = parse_list(s, &e, eb);
+		ex = parse_list(s, &e, &eb);
 	else if (*s == '"') 
-		ex = parse_string(s, &e, eb);
+		ex = parse_qstring(s, &e, &eb);
 	else
-		ex = parse_symbol(s, &e, eb);
+		ex = parse_symbol(s, &e, &eb);
 
 	if (!ex) {
 		int lineno, charno;
@@ -222,12 +246,15 @@ sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen)
 		return 0;
 	}
 
+	// skip whitespace
 	for (s = e; *s && isspace(*s); s++);
+
+	// if not at end of buffer, we have unexpected chars.
 	if (*s) {
 		int lineno, charno;
 		sexp_free(ex);
 		location(buf, s, &lineno, &charno);
-		snprintf(errmsg, errmsglen, "unexpected char at L%d.%d", lineno, charno);
+		snprintf(errmsg, errmsglen, "%s at L%d.%d", E_UNEXPECTED, lineno, charno);
 		return 0;
 	}
 
