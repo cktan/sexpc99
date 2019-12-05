@@ -35,11 +35,12 @@ static sexp_t* parse_string(char* s, char** e, char* eb)
 
 	ex->kind = SEXP_ATOM;
 	ex->u.atom.quoted = 1;
-	ex->u.atom.start = s;
+	ex->u.atom.ptr = s;
 	for (s++; *s; s++) {
 		if (*s == '"') 
 			break;
 		if (*s == '\\') {
+			ex->u.atom.escaped = 1;
 			if (s[1] == '\\' || s[1] == '"') {
 				s++;
 				continue;
@@ -53,7 +54,7 @@ static sexp_t* parse_string(char* s, char** e, char* eb)
 	}
 	
 	s++;
-	ex->u.atom.stop = s;
+	ex->u.atom.term = s;
 	*(const char**) e = s;
 	return ex;
 }
@@ -66,7 +67,7 @@ static sexp_t* parse_symbol(char* s, char** e, char* eb)
 		return 0;
 
 	ex->kind = SEXP_ATOM;
-	ex->u.atom.start = s;
+	ex->u.atom.ptr = s;
 	for (s++; *s; s++) {
 		if (isspace(*s) || *s == ')')
 			break;
@@ -76,7 +77,7 @@ static sexp_t* parse_symbol(char* s, char** e, char* eb)
 		return reterr("bad symbol", s, e, eb, ex);
 	}
 
-	ex->u.atom.stop = s;
+	ex->u.atom.term = s;
 	*(const char**) e = s;
 	return ex;
 }
@@ -181,12 +182,16 @@ static sexp_t* touchup(sexp_t* ex)
 			touchup(ex->u.list.elem[i]);
 		}
 	} else if (ex->kind == SEXP_ATOM) {
-		*ex->u.atom.stop = 0;
+		*ex->u.atom.term = 0;
 		if (ex->u.atom.quoted) {
-			char* p = ++ex->u.atom.start;
-			char* q = ex->u.atom.stop - 1;
+			// unquote
+			char* p = ++ex->u.atom.ptr;
+			char* q = ex->u.atom.term - 1;
 			*q = 0;
-			ex->u.atom.stop = unescape(p, q);
+			// unescape
+			if (ex->u.atom.escaped) {
+				ex->u.atom.term = unescape(p, q);
+			}
 		}
 	}
 

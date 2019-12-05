@@ -10,9 +10,10 @@ struct sexp_t {
 	sexp_kind_t kind;
 	union {
 		struct {
-			char* start;
-			char* stop;
-			int   quoted;
+			char* ptr;			/* point to first char of atom */
+			char* term;			/* point to NUL term of atom */
+			char  quoted;		/* true if atom was quoted */
+			char  escaped;		/* true if atom needs unescaping */
 		} atom;
 		struct {
 			sexp_t** elem;

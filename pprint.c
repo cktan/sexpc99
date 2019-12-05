@@ -39,10 +39,10 @@ void pprint(sexp_t* ex, int level)
 		indent(level);
 		if (ex->u.atom.quoted) {
 			putchar('"');
-			pesc(ex->u.atom.start);
+			pesc(ex->u.atom.ptr);
 			putchar('"');
 		} else {
-			puts(ex->u.atom.start);
+			puts(ex->u.atom.ptr);
 		}
 		return;
 	}
