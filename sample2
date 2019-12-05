@@ -1,0 +1,6 @@
+((data "quoted data" 123 4.5)
+ (data (eq (4.5) "more" "data"))
+ (two-backslashes "ab\\\\cd")
+ (two-doublequotes "ab\"\"cd")
+)
+ 
