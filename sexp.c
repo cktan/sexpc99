@@ -13,13 +13,14 @@
 
 
 
-static inline sexp_t* mksexp(const char** eb)
+static inline sexp_t* mksexp(sexp_kind_t kind, const char** eb)
 {
 	sexp_t* p = calloc(sizeof(*p), 1);
 	if (!p) {
 		*eb = E_OUTOFMEMORY;
 		return 0;
 	}
+	p->kind = kind;
 	return p;
 }
 
@@ -31,20 +32,19 @@ static sexp_t* reterr(const char* msg, const char* s, char** e, const char** eb,
 	return 0;
 }
 
-/* Parse a quoted string at s. 
- * On success, return the s-exp; also the start of next expression in e.
- * On error, return NULL, and the error message in eb.
+/**
+ *  Parse a quoted string at s. 
+ *  On success, return the s-exp; also the start of next expression in e.
+ *  On error, return NULL, and the error message in eb.
  */
 static sexp_t* parse_qstring(char* s, char** e, const char** eb)
 {
 	assert(*s == '"');
-	*e = 0;
 	
-	sexp_t* ex = mksexp(eb);
+	sexp_t* ex = mksexp(SEXP_ATOM, eb);
 	if (!ex)
 		return 0;
 
-	ex->kind = SEXP_ATOM;
 	ex->u.atom.quoted = 1;
 	ex->u.atom.ptr = s;
 	for (s++; *s; s++) {
@@ -71,17 +71,17 @@ static sexp_t* parse_qstring(char* s, char** e, const char** eb)
 }
 
 
-/* Parse a symbol at s. 
- * On success, return the s-exp; also the start of next expression in e.
- * On error, return NULL, and the error message in eb.
+/**
+ *  Parse a symbol at s. 
+ *  On success, return the s-exp; also the start of next expression in e.
+ *  On error, return NULL, and the error message in eb.
  */
 static sexp_t* parse_symbol(char* s, char** e, const char** eb)
 {
-	sexp_t* ex = mksexp(eb);
+	sexp_t* ex = mksexp(SEXP_ATOM, eb);
 	if (!ex)
 		return 0;
 
-	ex->kind = SEXP_ATOM;
 	ex->u.atom.ptr = s;
 	for (s++; *s; s++) {
 		if (isspace(*s) || *s == ')')
@@ -97,17 +97,21 @@ static sexp_t* parse_symbol(char* s, char** e, const char** eb)
 }
 
 
-/* Append kid to end of list in ex. */
+/**
+ *  Append kid to end of list in ex. 
+ */
 static sexp_t* append(sexp_t* ex, sexp_t* kid)
 {
+	assert(ex->kind == SEXP_LIST);
+	
 	/* expand? */
 	if (ex->u.list.top == ex->u.list.max) {
-		int n = ex->u.list.max + 8;
-		sexp_t** p = realloc(ex->u.list.elem, n * sizeof(sexp_t*));
+		int newmax = ex->u.list.max + 8;
+		sexp_t** p = realloc(ex->u.list.elem, newmax * sizeof(*p));
 		if (!p) 
 			return 0;
 		ex->u.list.elem = p;
-		ex->u.list.max = n;
+		ex->u.list.max = newmax;
 	}
 
 	/* add to end */
@@ -116,29 +120,33 @@ static sexp_t* append(sexp_t* ex, sexp_t* kid)
 }
 
 
-/* Parse a list at s. 
- * On success, return the s-exp; also the start of next expression in e.
- * On error, return NULL, and the error message in eb.
+/**
+ *  Parse a list at s. 
+ *  On success, return the s-exp; also the start of next expression in e.
+ *  On error, return NULL, and the error message in eb.
  */
 static sexp_t* parse_list(char* s, char** e, const char** eb)
 {
-	sexp_t* ex = mksexp(eb);
+	assert(*s == '(');
+	
+	sexp_t* ex = mksexp(SEXP_LIST, eb);
 	if (!ex)
 		return 0;
 
-	assert(*s == '(');
-	ex->kind = SEXP_LIST;
 	for (s++; *s; ) {
+		/* skip whitespaces */
 		if (isspace(*s)) {
 			s++;
 			continue;
 		}
 
+		/* end of list? */
 		if (*s == ')') {
 			s++;
 			break;
 		}
 
+		/* parse a child */
 		sexp_t* kid = 0;
 		if (*s == '"') 
 			kid = parse_qstring(s, e, eb);
@@ -151,11 +159,13 @@ static sexp_t* parse_list(char* s, char** e, const char** eb)
 			sexp_free(ex);
 			return 0;
 		}
-		
+
+		/* add to tail */
 		if (! append(ex, kid)) {
 			return reterr(E_OUTOFMEMORY, s, e, eb, ex);
 		}
-		
+
+		/* move forward to next kid */
 		s = *e;
 	}
 
@@ -163,6 +173,11 @@ static sexp_t* parse_list(char* s, char** e, const char** eb)
 	return ex;
 }
 
+
+/**
+ *  Given a ptr into buf[], determine the lineno and charno of the
+ *  char pointed by ptr in buf[]
+ */
 static void location(const char* buf, const char* ptr, int* ret_lineno, int* ret_charno)
 {
 	int lineno, charno;
@@ -179,6 +194,11 @@ static void location(const char* buf, const char* ptr, int* ret_lineno, int* ret
 }
 
 
+/**
+ *  For the string bracketed by (p, q), unescape
+ *  any escaped char in-place. The string will
+ *  be shortened if there is any escape char.
+ */
 static char* unescape(char* p, char* q)
 {
 	char* s;
@@ -194,15 +214,22 @@ static char* unescape(char* p, char* q)
 
 
 
+/**
+ *  Go through the s-exp tree and unescape any 
+ *  quoted strings
+ */
 static sexp_t* touchup(sexp_t* ex)
 {
 	if (!ex) return 0;
 
-	if (ex->kind == SEXP_LIST) {
+	switch (ex->kind) {
+	case SEXP_LIST:
 		for (int i = 0; i < ex->u.list.top; i++) {
 			touchup(ex->u.list.elem[i]);
 		}
-	} else if (ex->kind == SEXP_ATOM) {
+		break;
+
+	case SEXP_ATOM: 
 		*ex->u.atom.term = 0;
 		if (ex->u.atom.quoted) {
 			// unquote
@@ -214,6 +241,10 @@ static sexp_t* touchup(sexp_t* ex)
 				ex->u.atom.term = unescape(p, q);
 			}
 		}
+		break;
+
+	default:
+		break;
 	}
 
 	return ex;
@@ -221,6 +252,13 @@ static sexp_t* touchup(sexp_t* ex)
 
 
 
+/**
+ * Parse buf and return a pointer to a s-exp tree with atoms pointing
+ * into buf[], which is modified in place by unescaping and terminating 
+ * the atoms with NUL.
+ *
+ * Caller must call sexp_free(ptr) after use.
+ */
 sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen)
 {
 	char* s = buf;
@@ -263,6 +301,9 @@ sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen)
 }
 
 
+/**
+ *  Free the memory allocated in a s-exp tree.
+ */
 void sexp_free(sexp_t* ex)
 {
 	if (ex) {
