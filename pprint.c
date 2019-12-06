@@ -40,7 +40,7 @@ void pprint(sexp_t* ex, int level)
 		if (ex->u.atom.quoted) {
 			putchar('"');
 			pesc(ex->u.atom.ptr);
-			putchar('"');
+			puts("\"");
 		} else {
 			puts(ex->u.atom.ptr);
 		}
