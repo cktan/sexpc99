@@ -1,6 +1,15 @@
 #ifndef SEXP_H
 #define SEXP_H
 
+/*
+ * Atoms are either quoted or not quoted.
+ *
+ * Quoted atom allows only escape of backslash and double-quote.
+ * Everything else is considered an error, including \n and friends.
+ *
+ * Unquoted atom allows [a-zA-Z0-9] and the following chars:
+ *     - . / _ : * + = 
+ */
 
 enum sexp_kind_t { SEXP_NONE, SEXP_LIST, SEXP_ATOM };
 typedef enum sexp_kind_t sexp_kind_t;
@@ -10,9 +19,9 @@ struct sexp_t {
 	sexp_kind_t kind;			/* list or atom */
 	union {
 		struct {
-			char  quoted;		/* true if atom was quoted */
 			char* ptr;			/* point to first char of atom */
 			char* term;			/* (internal) point to NUL term of atom */
+			char  quoted;		/* (internal) true if atom was quoted */
 			char  escaped;		/* (internal) true if atom needs unescaping */
 		} atom;
 		struct {

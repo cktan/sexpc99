@@ -86,7 +86,7 @@ static sexp_t* parse_symbol(char* s, char** e, const char** eb)
 	for (s++; *s; s++) {
 		if (isspace(*s) || *s == ')')
 			break;
-		if (isalnum(*s) || strchr("+-_.", *s))
+		if (isalnum(*s) || strchr("-./_:*+=", *s))
 			continue;
 		return reterr(E_BADSYMBOL, s, e, eb, ex);
 	}
