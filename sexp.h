@@ -4,7 +4,11 @@
 /*
  * Atoms are either quoted or not quoted.
  *
- * Quoted atom allows only escape of backslash and double-quote.
+ * Quoted atom allows the following escapes:
+ *   1. backslash:    \\
+ *   2. double-quote: \" 
+ *   3. hexcode:      \x00 
+ *
  * Everything else is considered an error, including \n and friends.
  *
  * Unquoted atom allows [a-zA-Z0-9] and the following chars:

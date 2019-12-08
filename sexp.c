@@ -52,10 +52,21 @@ static sexp_t* parse_qstring(char* s, char** e, const char** eb)
 			break;
 		if (*s == '\\') {
 			ex->u.atom.escaped = 1;
-			if (s[1] == '\\' || s[1] == '"') {
+			switch (s[1]) {
+			case '\\':
+			case '"':
 				s++;
 				continue;
+
+			case 'x':
+				if (strchr("0123456789abcdefABCDEF", s[2])
+					&& strchr("0123456789abcdefABCDEF", s[3]))  {
+					s += 3;
+					continue;
+				}
+				break;
 			}
+				
 			return reterr(E_BADESCAPE, s, e, eb, ex);
 		}
 	}
@@ -193,6 +204,12 @@ static void location(const char* buf, const char* ptr, int* ret_lineno, int* ret
 	*ret_charno = charno + 1;
 }
 
+static inline int decodehex(int ch)
+{
+	ch = toupper(ch);
+	return (ch >= 'A') ? (ch - 'A' + 10) : (ch - '0');
+}
+
 
 /**
  *  For the string bracketed by (p, q), unescape
@@ -204,7 +221,20 @@ static char* unescape(char* p, char* q)
 	char* s;
 	for (s = p; p < q; p++) {
 		if (*p == '\\') {
-			p++;
+			switch (p[1]) {
+			case '\\':
+			case '"':
+				*s++ = *(++p);
+				continue;
+
+			case 'x':
+				*s++ = (decodehex(p[2]) << 4) | decodehex(p[3]);
+				p += 3;
+				continue;
+			}
+
+			fprintf(stderr, "panic at %s:%d", __FILE__, __LINE__);
+			exit(1);
 		}
 		*s++ = *p;
 	}

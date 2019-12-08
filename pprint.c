@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ctype.h>
 #include "sexp.h"
 
 void indent(int level)
@@ -15,7 +16,14 @@ void pesc(char* p)
 	for ( ; *p; p++) {
 		if (*p == '\\' || *p == '"') {
 			putchar('\\');
-		} 
+			putchar(*p);
+			continue;
+		}
+		if (!isprint(*p)) {
+			printf("\\x%02x", *p);
+			continue;
+		}
+		
 		putchar(*p);
 	}
 }
