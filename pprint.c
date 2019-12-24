@@ -35,8 +35,8 @@ void pprint(sexp_t* ex, int level)
 	if (ex->kind == SEXP_LIST) {
 		indent(level);
 		puts("(");
-		for (int i = 0; i < ex->u.list.top; i++) {
-			pprint(ex->u.list.elem[i], level+1);
+		for (int i = 0; i < ex->list.top; i++) {
+			pprint(ex->list.elem[i], level+1);
 		}
 		indent(level);
 		puts(")");
@@ -45,12 +45,12 @@ void pprint(sexp_t* ex, int level)
 
 	if (ex->kind == SEXP_ATOM) {
 		indent(level);
-		if (ex->u.atom.quoted) {
+		if (ex->atom.quoted) {
 			putchar('"');
-			pesc(ex->u.atom.ptr);
+			pesc(ex->atom.ptr);
 			puts("\"");
 		} else {
-			puts(ex->u.atom.ptr);
+			puts(ex->atom.ptr);
 		}
 		return;
 	}

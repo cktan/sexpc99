@@ -45,13 +45,13 @@ static sexp_t* parse_qstring(char* s, char** e, const char** eb)
 	if (!ex)
 		return 0;
 
-	ex->u.atom.quoted = 1;
-	ex->u.atom.ptr = s;
+	ex->atom.quoted = 1;
+	ex->atom.ptr = s;
 	for (s++; *s; s++) {
 		if (*s == '"') 
 			break;
 		if (*s == '\\') {
-			ex->u.atom.escaped = 1;
+			ex->atom.escaped = 1;
 			switch (s[1]) {
 			case '\\':
 			case '"':
@@ -76,7 +76,7 @@ static sexp_t* parse_qstring(char* s, char** e, const char** eb)
 	}
 	
 	s++;
-	ex->u.atom.term = s;
+	ex->atom.term = s;
 	*(const char**) e = s;
 	return ex;
 }
@@ -93,7 +93,7 @@ static sexp_t* parse_symbol(char* s, char** e, const char** eb)
 	if (!ex)
 		return 0;
 
-	ex->u.atom.ptr = s;
+	ex->atom.ptr = s;
 	for (s++; *s; s++) {
 		if (isspace(*s) || *s == ')')
 			break;
@@ -102,7 +102,7 @@ static sexp_t* parse_symbol(char* s, char** e, const char** eb)
 		return reterr(E_BADSYMBOL, s, e, eb, ex);
 	}
 
-	ex->u.atom.term = s;
+	ex->atom.term = s;
 	*(const char**) e = s;
 	return ex;
 }
@@ -116,17 +116,17 @@ static sexp_t* append(sexp_t* ex, sexp_t* kid)
 	assert(ex->kind == SEXP_LIST);
 	
 	/* expand? */
-	if (ex->u.list.top == ex->u.list.max) {
-		int newmax = ex->u.list.max + 8;
-		sexp_t** p = realloc(ex->u.list.elem, newmax * sizeof(*p));
+	if (ex->list.top == ex->list.max) {
+		int newmax = ex->list.max + 8;
+		sexp_t** p = realloc(ex->list.elem, newmax * sizeof(*p));
 		if (!p) 
 			return 0;
-		ex->u.list.elem = p;
-		ex->u.list.max = newmax;
+		ex->list.elem = p;
+		ex->list.max = newmax;
 	}
 
 	/* add to end */
-	ex->u.list.elem[ex->u.list.top++] = kid;
+	ex->list.elem[ex->list.top++] = kid;
 	return ex;
 }
 
@@ -254,21 +254,21 @@ static sexp_t* touchup(sexp_t* ex)
 
 	switch (ex->kind) {
 	case SEXP_LIST:
-		for (int i = 0; i < ex->u.list.top; i++) {
-			touchup(ex->u.list.elem[i]);
+		for (int i = 0; i < ex->list.top; i++) {
+			touchup(ex->list.elem[i]);
 		}
 		break;
 
 	case SEXP_ATOM: 
-		*ex->u.atom.term = 0;
-		if (ex->u.atom.quoted) {
+		*ex->atom.term = 0;
+		if (ex->atom.quoted) {
 			// unquote
-			char* p = ++ex->u.atom.ptr;
-			char* q = ex->u.atom.term - 1;
+			char* p = ++ex->atom.ptr;
+			char* q = ex->atom.term - 1;
 			*q = 0;
 			// unescape
-			if (ex->u.atom.escaped) {
-				ex->u.atom.term = unescape(p, q);
+			if (ex->atom.escaped) {
+				ex->atom.term = unescape(p, q);
 			}
 		}
 		break;
@@ -338,10 +338,10 @@ void sexp_free(sexp_t* ex)
 {
 	if (ex) {
 		if (ex->kind == SEXP_LIST) {
-			for (int i = 0; i < ex->u.list.top; i++) {
-				sexp_free(ex->u.list.elem[i]);
+			for (int i = 0; i < ex->list.top; i++) {
+				sexp_free(ex->list.elem[i]);
 			}
-			free(ex->u.list.elem);
+			free(ex->list.elem);
 		}
 
 		free(ex);

@@ -32,7 +32,7 @@ struct sexp_t {
 			sexp_t** elem;		/* elem[0..top) are valid */
 			int top, max;
 		} list;
-	} u;
+	} ;
 };
 
 
