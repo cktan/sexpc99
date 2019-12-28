@@ -1,0 +1,4 @@
+(
+  ZEBRA
+  "ZEBRA"
+)

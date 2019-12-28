@@ -1,0 +1,31 @@
+(
+  (
+    data
+    "quoted data"
+    123
+    4.5
+  )
+  (
+    data
+    (
+      max
+      (
+        4.5
+      )
+      +1.2
+      -3.4
+    )
+  )
+  (
+    ab-bs-bs-cd
+    "ab\\\\cd"
+  )
+  (
+    ab-dq-cd-dq-ef
+    "ab\"cd\"ef"
+  )
+  (
+    ZEBRA
+    "ZEBRA"
+  )
+)
