@@ -21,34 +21,33 @@ static const char* errstr(int e)
 	return "unknown error";
 }
 
+static int match(const char* templ, char ch)
+{
+	char* p = strchr(templ, toupper(ch));
+	return p ? p - templ : -1;
+}
 
 static int octval(char* s)
 {
-	int val = 0;
-	const char* p = "01234567";
-	const char* pp = strchr(p, *s++);
-	if (pp) {
-		val = pp - p;
-		pp = strchr(p, *s++);
+	const char* templ = "01234567";
+	int val = match(templ, *s++);
+	if (val >= 0) {
+		val = (val << 3) | match(templ, *s++);
+		if (val >= 0) {
+			val = (val << 3) | match(templ, *s++);
+		}
 	}
-	if (pp) {
-		val = (val << 3) | (pp - p);
-		pp = strchr(p, *s);
-	}
-	return pp ? ((val << 3) | (pp - p)) : -1;
+	return val;
 }
 
 static int hexval(char* s)
 {
-	int val = 0;
-	const char* p = "0123456789ABCDEF";
-	const char* pp = strchr(p, toupper(*s));
-	s++;
-	if (pp) {
-		val = pp - p;
-		pp = strchr(p, toupper(*s));
+	const char* templ = "0123456789ABCDEF";
+	int val = match(templ, *s++);
+	if (val >= 0) {
+		val = (val << 4) | match(templ, *s++);
 	}
-	return pp ? ((val << 4) | (pp - p)) : -1;
+	return val;
 }
 
 static int wspace(const char* s)
