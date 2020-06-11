@@ -95,11 +95,11 @@ static sexp_t* parse_qstring(char* s, char** e, const char** eb)
 				continue;
 			}
 			if ('\n' == s[1]) {
-				s += ('\r' == s[2] ? 2 : 1);
+				s += ('\r' == s[2]) ? 2 : 1;
 				continue;
 			}
 			if ('\r' == s[1]) {
-				s += ('\n' == s[2] ? 2 : 1);
+				s += ('\n' == s[2]) ? 2 : 1;
 				continue;
 			}
 			return reterr(E_BADESCAPE, s, e, eb, ex);
@@ -268,6 +268,18 @@ static char* unescape(char* p, char* q)
 			if (p[1] == 'x') {
 				*s++ = hexval(p+2);
 				p += 3;
+				continue;
+			}
+
+			if (p[1] == '\n') {
+				*s++ = '\n';
+				p += ('\r' == p[2]) ? 2 : 1;
+				continue;
+			}
+
+			if (p[1] == '\r') {
+				*s++ = '\n';
+				p += ('\n' == p[2]) ? 2 : 1;
 				continue;
 			}
 
