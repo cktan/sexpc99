@@ -32,27 +32,25 @@ void pprint(sexp_t* ex, int level)
 {
 	if (!ex) return;
 
-	if (ex->kind == SEXP_LIST) {
+	if (ex->list) {
 		indent(level);
 		puts("(");
-		for (int i = 0; i < ex->list.top; i++) {
-			pprint(ex->list.elem[i], level+1);
+		for (int i = 0; i < ex->len; i++) {
+			pprint(ex->list[i], level+1);
 		}
 		indent(level);
 		puts(")");
-		return;
-	}
-
-	if (ex->kind == SEXP_ATOM) {
+		
+	} else {
+		
 		indent(level);
-		if (ex->a.quoted) {
+		if (ex->flag & SEXP_FLAG_QUOTED) {
 			putchar('"');
 			pesc(ex->atom);
 			puts("\"");
 		} else {
 			puts(ex->atom);
 		}
-		return;
 	}
 }
 

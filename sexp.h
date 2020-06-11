@@ -13,25 +13,21 @@
  *     - . / _ : * + = 
  */
 
-enum sexp_kind_t { SEXP_NONE, SEXP_LIST, SEXP_ATOM };
-typedef enum sexp_kind_t sexp_kind_t;
+#define SEXP_FLAG_ESCAPED 1
+#define SEXP_FLAG_QUOTED  2
+
+#define SEXP_EOUTOFMEMORY -1
+#define SEXP_EBADESCAPE   -2
+#define SEXP_EENDQUOTE    -3
+#define SEXP_EBADSYMBOL   -4
+#define SEXP_EINVALID     -5
 
 typedef struct sexp_t sexp_t;
 struct sexp_t {
-	sexp_kind_t kind;			/* list or atom */
-	union {
-		char* atom;
-		struct {
-			sexp_t** elem;		/* elem[0..top) are valid */
-			int top, max;
-		} list;
-		struct {
-			char* ptr;			/* point to first char of atom; overlays sexp_t.atom */
-			char* term;			/* (internal) point to NUL term of atom */
-			char  quoted;		/* (internal) true if atom was quoted */
-			char  escaped;		/* (internal) true if atom needs unescaping */
-		} a; /* internal */
-	} ;
+	char* atom;
+	sexp_t** list;
+	int len;
+	int flag;
 };
 
 

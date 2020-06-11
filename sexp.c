@@ -5,11 +5,21 @@
 #include <assert.h>
 #include "sexp.h"
 
-#define E_OUTOFMEMORY "out of memory"
-#define E_BADESCAPE   "bad escape"
-#define E_ENDQUOTE    "missing end quote in string"
-#define E_BADSYMBOL   "bad symbol"
-#define E_UNEXPECTED  "unexpected char"
+#define STRINGIFY(x)  #x
+#define TOSTRING(x)   STRINGIFY(x)
+
+static const char* errstr(int e)
+{
+	switch (e) {
+	case SEXP_EOUTOFMEMORY: return "out of memory";
+	case SEXP_EBADESCAPE: return "bad escape";
+	case SEXP_EENDQUOTE: return "missing end-quote in string";
+	case SEXP_EBADSYMBOL: return "bad symbol";
+	case SEXP_EINVALID: return "unexpected char";
+	}
+	
+	return "unknown error";
+}
 
 
 static int octval(char* s)
@@ -50,21 +60,20 @@ static int wspace(const char* s)
 
 
 
-static inline sexp_t* mksexp(sexp_kind_t kind, const char** eb)
+static inline sexp_t* mksexp(int* perr)
 {
 	sexp_t* p = calloc(sizeof(*p), 1);
 	if (!p) {
-		*eb = E_OUTOFMEMORY;
+		*perr = SEXP_EOUTOFMEMORY;
 		return 0;
 	}
-	p->kind = kind;
 	return p;
 }
 
-static sexp_t* reterr(const char* msg, const char* s, char** e, const char** eb, sexp_t* ex)
+static sexp_t* reterr(int err, const char* s, char** e, int* perr, sexp_t* ex)
 {
 	sexp_free(ex);
-	*eb = msg;
+	*perr = err;
 	*(const char**) e = s;
 	return 0;
 }
@@ -74,21 +83,21 @@ static sexp_t* reterr(const char* msg, const char* s, char** e, const char** eb,
  *  On success, return the s-exp; also the start of next expression in e.
  *  On error, return NULL, and the error message in eb.
  */
-static sexp_t* parse_qstring(char* s, char** e, const char** eb)
+static sexp_t* parse_qstring(char* s, char** e, int* perr)
 {
 	assert(*s == '"');
 	
-	sexp_t* ex = mksexp(SEXP_ATOM, eb);
+	sexp_t* ex = mksexp(perr);
 	if (!ex)
 		return 0;
 
-	ex->a.quoted = 1;
-	ex->a.ptr = s;
+	ex->flag |= SEXP_FLAG_QUOTED;
+	ex->atom = s;
 	for (s++; *s; s++) {
 		if (*s == '"') 
 			break;
 		if (*s == '\\') {
-			ex->a.escaped = 1;
+			ex->flag |= SEXP_FLAG_ESCAPED;
 			if (strchr("btvnfr\"'\\", s[1])) {
 				s++;
 				continue;
@@ -109,16 +118,16 @@ static sexp_t* parse_qstring(char* s, char** e, const char** eb)
 				s += ('\n' == s[2]) ? 2 : 1;
 				continue;
 			}
-			return reterr(E_BADESCAPE, s, e, eb, ex);
+			return reterr(SEXP_EBADESCAPE, s, e, perr, ex);
 		}
 	}
 
 	if (*s != '"') {
-		return reterr(E_ENDQUOTE, s, e, eb, ex);
+		return reterr(SEXP_EENDQUOTE, s, e, perr, ex);
 	}
 	
 	s++;
-	ex->a.term = s;
+	ex->len = s - ex->atom;
 	*(const char**) e = s;
 	return ex;
 }
@@ -129,22 +138,26 @@ static sexp_t* parse_qstring(char* s, char** e, const char** eb)
  *  On success, return the s-exp; also the start of next expression in e.
  *  On error, return NULL, and the error message in eb.
  */
-static sexp_t* parse_symbol(char* s, char** e, const char** eb)
+static sexp_t* parse_symbol(char* s, char** e, int* perr)
 {
-	sexp_t* ex = mksexp(SEXP_ATOM, eb);
+	sexp_t* ex = mksexp(perr);
 	if (!ex)
 		return 0;
 
-	ex->a.ptr = s;
+	ex->atom = s;
 	for (s++; *s; s++) {
 		if (isspace(*s) || *s == ')')
 			break;
 		if (isalnum(*s) || strchr("-./_:*+=", *s))
 			continue;
-		return reterr(E_BADSYMBOL, s, e, eb, ex);
+		return reterr(SEXP_EBADSYMBOL, s, e, perr, ex);
 	}
 
-	ex->a.term = s;
+	if (s == ex->atom) {
+		return reterr(SEXP_EBADSYMBOL, s, e, perr, ex);
+	}
+
+	ex->len = s - ex->atom;
 	*(const char**) e = s;
 	return ex;
 }
@@ -155,20 +168,17 @@ static sexp_t* parse_symbol(char* s, char** e, const char** eb)
  */
 static sexp_t* append(sexp_t* ex, sexp_t* kid)
 {
-	assert(ex->kind == SEXP_LIST);
-	
 	/* expand? */
-	if (ex->list.top == ex->list.max) {
-		int newmax = ex->list.max + 8;
-		sexp_t** p = realloc(ex->list.elem, newmax * sizeof(*p));
+	if (ex->len % 8 == 0) {
+		int newmax = ex->len + 8;
+		sexp_t** p = realloc(ex->list, newmax * sizeof(*p));
 		if (!p) 
 			return 0;
-		ex->list.elem = p;
-		ex->list.max = newmax;
+		ex->list = p;
 	}
 
 	/* add to end */
-	ex->list.elem[ex->list.top++] = kid;
+	ex->list[ex->len++] = kid;
 	return ex;
 }
 
@@ -178,11 +188,11 @@ static sexp_t* append(sexp_t* ex, sexp_t* kid)
  *  On success, return the s-exp; also the start of next expression in e.
  *  On error, return NULL, and the error message in eb.
  */
-static sexp_t* parse_list(char* s, char** e, const char** eb)
+static sexp_t* parse_list(char* s, char** e, int* perr)
 {
 	assert(*s == '(');
 	
-	sexp_t* ex = mksexp(SEXP_LIST, eb);
+	sexp_t* ex = mksexp(perr);
 	if (!ex)
 		return 0;
 
@@ -202,11 +212,11 @@ static sexp_t* parse_list(char* s, char** e, const char** eb)
 		/* parse a child */
 		sexp_t* kid = 0;
 		if (*s == '"') 
-			kid = parse_qstring(s, e, eb);
+			kid = parse_qstring(s, e, perr);
 		else if (*s == '(') 
-			kid = parse_list(s, e, eb);
+			kid = parse_list(s, e, perr);
 		else 
-			kid = parse_symbol(s, e, eb);
+			kid = parse_symbol(s, e, perr);
 		
 		if (! kid) {
 			sexp_free(ex);
@@ -215,7 +225,7 @@ static sexp_t* parse_list(char* s, char** e, const char** eb)
 
 		/* add to tail */
 		if (! append(ex, kid)) {
-			return reterr(E_OUTOFMEMORY, s, e, eb, ex);
+			return reterr(SEXP_EOUTOFMEMORY, s, e, perr, ex);
 		}
 
 		/* move forward to next kid */
@@ -309,31 +319,23 @@ static sexp_t* touchup(sexp_t* ex)
 {
 	if (!ex) return 0;
 
-	switch (ex->kind) {
-	case SEXP_LIST:
-		for (int i = 0; i < ex->list.top; i++) {
-			touchup(ex->list.elem[i]);
+	if (ex->list) {
+		for (int i = 0; i < ex->len; i++) {
+			touchup(ex->list[i]);
 		}
-		break;
-
-	case SEXP_ATOM: 
-		*ex->a.term = 0;
-		if (ex->a.quoted) {
+	} else {
+		ex->atom[ex->len] = 0;
+			
+		if (ex->flag & SEXP_FLAG_QUOTED) {
 			// unquote
-			char* p = ++ex->a.ptr;
-			char* q = ex->a.term - 1;
-			*q = 0;
+			char* p = ++ex->atom;
+			p[ex->len -= 2] = 0;
 			// unescape
-			if (ex->a.escaped) {
-				ex->a.term = unescape(p, q);
+			if (ex->flag & SEXP_FLAG_ESCAPED) {
+				unescape(p, p + ex->len);
 			}
 		}
-		break;
-
-	default:
-		break;
 	}
-
 	return ex;
 }
 
@@ -351,23 +353,23 @@ sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen)
 	char* s = buf;
 	char* e = 0;
 	sexp_t* ex = 0;
-	const char* eb = 0;
+	int err;
 
 	// skip whitespace
 	s += wspace(s);
 
 	// parse
 	if (*s == '(') 
-		ex = parse_list(s, &e, &eb);
+		ex = parse_list(s, &e, &err);
 	else if (*s == '"') 
-		ex = parse_qstring(s, &e, &eb);
+		ex = parse_qstring(s, &e, &err);
 	else
-		ex = parse_symbol(s, &e, &eb);
+		ex = parse_symbol(s, &e, &err);
 
 	if (!ex) {
 		int lineno, charno;
 		location(buf, e, &lineno, &charno);
-		snprintf(errmsg, errmsglen, "%s at L%d.%d", eb, lineno, charno);
+		snprintf(errmsg, errmsglen, "%s at L%d.%d", errstr(err), lineno, charno);
 		return 0;
 	}
 
@@ -379,10 +381,9 @@ sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen)
 		int lineno, charno;
 		sexp_free(ex);
 		location(buf, s, &lineno, &charno);
-		snprintf(errmsg, errmsglen, "%s at L%d.%d", E_UNEXPECTED, lineno, charno);
+		snprintf(errmsg, errmsglen, "%s at L%d.%d", errstr(SEXP_EINVALID), lineno, charno);
 		return 0;
 	}
-
 
 	return touchup(ex);
 }
@@ -394,11 +395,11 @@ sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen)
 void sexp_free(sexp_t* ex)
 {
 	if (ex) {
-		if (ex->kind == SEXP_LIST) {
-			for (int i = 0; i < ex->list.top; i++) {
-				sexp_free(ex->list.elem[i]);
+		if (ex->list) {
+			for (int i = 0; i < ex->len; i++) {
+				sexp_free(ex->list[i]);
 			}
-			free(ex->list.elem);
+			free(ex->list);
 		}
 
 		free(ex);
