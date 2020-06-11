@@ -5,9 +5,6 @@
 #include <assert.h>
 #include "sexp.h"
 
-#define STRINGIFY(x)  #x
-#define TOSTRING(x)   STRINGIFY(x)
-
 static const char* errstr(int e)
 {
 	switch (e) {
@@ -21,25 +18,27 @@ static const char* errstr(int e)
 	return "unknown error";
 }
 
+/* return offset of UPPER(ch) in templ */
 static int match(const char* templ, char ch)
 {
 	char* p = strchr(templ, toupper(ch));
 	return p ? p - templ : -1;
 }
 
+/* return octal value of s[0],s[1],s[2]. -1 if invalid. */
 static int octval(char* s)
 {
 	const char* templ = "01234567";
 	int val = match(templ, *s++);
 	if (val >= 0) {
 		val = (val << 3) | match(templ, *s++);
-		if (val >= 0) {
+		if (val >= 0) 
 			val = (val << 3) | match(templ, *s++);
-		}
 	}
 	return val;
 }
 
+/* return hex value of s[0],s[1]. -1 if invalid. */
 static int hexval(char* s)
 {
 	const char* templ = "0123456789ABCDEF";
@@ -50,6 +49,7 @@ static int hexval(char* s)
 	return val;
 }
 
+/* return # whitespaces at start of s */
 static int wspace(const char* s)
 {
 	const char* p;
@@ -58,7 +58,7 @@ static int wspace(const char* s)
 }
 
 
-
+/* alloc a sexp */
 static inline sexp_t* mksexp(int* perr)
 {
 	sexp_t* p = calloc(sizeof(*p), 1);
@@ -69,6 +69,7 @@ static inline sexp_t* mksexp(int* perr)
 	return p;
 }
 
+/* return error */
 static sexp_t* reterr(int err, const char* s, char** e, int* perr, sexp_t* ex)
 {
 	sexp_free(ex);
