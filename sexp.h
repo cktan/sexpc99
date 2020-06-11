@@ -9,7 +9,8 @@
  *   \ooo -- octal value ooo
  *   \xhh -- hex value hh
  *
- * Unquoted atom allows [a-zA-Z0-9] and the following chars:
+ * Unquoted atom allows the following chars:
+ *     [a-zA-Z0-9] 
  *     - . / _ : * + = 
  */
 
@@ -24,10 +25,16 @@
 
 typedef struct sexp_t sexp_t;
 struct sexp_t {
-	char* atom;
+	char* atom;			/* one of atom or list will be NUL */
 	sexp_t** list;
-	int len;
-	int flag;
+	int len;			/* length of atom or list */
+	int flag;			/* SEXP_FLAG_XXX */
+};
+
+typedef struct sexp_err_t sexp_err_t;
+struct sexp_err_t {
+	int errno;
+	char errmsg[80];
 };
 
 
@@ -38,7 +45,7 @@ struct sexp_t {
  *
  * Caller must call sexp_free(ptr) after use.
  */
-extern sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen);
+extern sexp_t* sexp_parse(char* buf, sexp_err_t* err);
 
 
 /**

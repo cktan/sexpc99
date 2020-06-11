@@ -348,28 +348,27 @@ static sexp_t* touchup(sexp_t* ex)
  *
  * Caller must call sexp_free(ptr) after use.
  */
-sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen)
+sexp_t* sexp_parse(char* buf, sexp_err_t* err)
 {
 	char* s = buf;
 	char* e = 0;
 	sexp_t* ex = 0;
-	int err;
 
 	// skip whitespace
 	s += wspace(s);
 
 	// parse
 	if (*s == '(') 
-		ex = parse_list(s, &e, &err);
+		ex = parse_list(s, &e, &err->errno);
 	else if (*s == '"') 
-		ex = parse_qstring(s, &e, &err);
+		ex = parse_qstring(s, &e, &err->errno);
 	else
-		ex = parse_symbol(s, &e, &err);
+		ex = parse_symbol(s, &e, &err->errno);
 
 	if (!ex) {
 		int lineno, charno;
 		location(buf, e, &lineno, &charno);
-		snprintf(errmsg, errmsglen, "%s at L%d.%d", errstr(err), lineno, charno);
+		snprintf(err->errmsg, sizeof(err->errmsg), "%s at L%d.%d", errstr(err->errno), lineno, charno);
 		return 0;
 	}
 
@@ -381,7 +380,8 @@ sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen)
 		int lineno, charno;
 		sexp_free(ex);
 		location(buf, s, &lineno, &charno);
-		snprintf(errmsg, errmsglen, "%s at L%d.%d", errstr(SEXP_EINVALID), lineno, charno);
+		err->errno = SEXP_EINVALID;
+		snprintf(err->errmsg, sizeof(err->errmsg), "%s at L%d.%d", errstr(err->errno), lineno, charno);
 		return 0;
 	}
 

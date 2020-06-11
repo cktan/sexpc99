@@ -102,13 +102,12 @@ char* read_stdin()
 int main()
 {
 	char* buf = read_stdin();
-	char errmsg[200];
-	sexp_t* ex = sexp_parse(buf, errmsg, sizeof(errmsg));
+	sexp_err_t sexp_err;
+	sexp_t* ex = sexp_parse(buf, &sexp_err);
 	if (!ex) {
-		fprintf(stderr, "error: %s\n", errmsg);
+		fprintf(stderr, "error: %s\n", sexp_err.errmsg);
 		exit(1);
 	}
-
 
 	pprint(ex, 0);
 	sexp_free(ex);
