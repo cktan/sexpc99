@@ -45,12 +45,12 @@ void pprint(sexp_t* ex, int level)
 
 	if (ex->kind == SEXP_ATOM) {
 		indent(level);
-		if (ex->atom.quoted) {
+		if (ex->a.quoted) {
 			putchar('"');
-			pesc(ex->atom.ptr);
+			pesc(ex->atom);
 			puts("\"");
 		} else {
-			puts(ex->atom.ptr);
+			puts(ex->atom);
 		}
 		return;
 	}
