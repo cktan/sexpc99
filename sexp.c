@@ -75,13 +75,13 @@ static sexp_t* parse_qstring(char* s, char** e, const char** eb)
 	if (!ex)
 		return 0;
 
-	ex->atom.quoted = 1;
-	ex->atom.ptr = s;
+	ex->a.quoted = 1;
+	ex->a.ptr = s;
 	for (s++; *s; s++) {
 		if (*s == '"') 
 			break;
 		if (*s == '\\') {
-			ex->atom.escaped = 1;
+			ex->a.escaped = 1;
 			if (strchr("btvnfr\"'\\", s[1])) {
 				s++;
 				continue;
@@ -111,7 +111,7 @@ static sexp_t* parse_qstring(char* s, char** e, const char** eb)
 	}
 	
 	s++;
-	ex->atom.term = s;
+	ex->a.term = s;
 	*(const char**) e = s;
 	return ex;
 }
@@ -128,7 +128,7 @@ static sexp_t* parse_symbol(char* s, char** e, const char** eb)
 	if (!ex)
 		return 0;
 
-	ex->atom.ptr = s;
+	ex->a.ptr = s;
 	for (s++; *s; s++) {
 		if (isspace(*s) || *s == ')')
 			break;
@@ -137,7 +137,7 @@ static sexp_t* parse_symbol(char* s, char** e, const char** eb)
 		return reterr(E_BADSYMBOL, s, e, eb, ex);
 	}
 
-	ex->atom.term = s;
+	ex->a.term = s;
 	*(const char**) e = s;
 	return ex;
 }
@@ -310,15 +310,15 @@ static sexp_t* touchup(sexp_t* ex)
 		break;
 
 	case SEXP_ATOM: 
-		*ex->atom.term = 0;
-		if (ex->atom.quoted) {
+		*ex->a.term = 0;
+		if (ex->a.quoted) {
 			// unquote
-			char* p = ++ex->atom.ptr;
-			char* q = ex->atom.term - 1;
+			char* p = ++ex->a.ptr;
+			char* q = ex->a.term - 1;
 			*q = 0;
 			// unescape
-			if (ex->atom.escaped) {
-				ex->atom.term = unescape(p, q);
+			if (ex->a.escaped) {
+				ex->a.term = unescape(p, q);
 			}
 		}
 		break;

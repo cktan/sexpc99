@@ -1,5 +1,13 @@
+HFILES = sexp.h
 CFILES = sexp.c
+OBJ = $(CFILES:.c=.o)
+EXEC = pprint
+LIB = libsexp.a
+LIB_SHARED = libsexp.so
+
 CFLAGS = -std=c99 -Wall -Wextra -fpic
+
+
 # to compile for debug: make DEBUG=1
 # to compile for no debug: make
 ifdef DEBUG
@@ -8,10 +16,6 @@ else
     CFLAGS += -O2 -DNDEBUG
 endif
 
-EXEC = pprint
-
-LIB = libsexp.a
-LIB_SHARED = libsexp.so
 
 all: $(LIB) $(LIB_SHARED) $(EXEC)
 
@@ -21,6 +25,8 @@ libsexp.a: sexp.o
 
 libsexp.so: sexp.o
 	$(CC) -shared -o $@ $^
+
+*.o: $(HFILES)
 
 pprint: pprint.c sexp.o
 

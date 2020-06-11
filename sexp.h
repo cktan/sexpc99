@@ -20,16 +20,17 @@ typedef struct sexp_t sexp_t;
 struct sexp_t {
 	sexp_kind_t kind;			/* list or atom */
 	union {
-		struct {
-			char* ptr;			/* point to first char of atom */
-			char* term;			/* (internal) point to NUL term of atom */
-			char  quoted;		/* (internal) true if atom was quoted */
-			char  escaped;		/* (internal) true if atom needs unescaping */
-		} atom;
+		char* atom;
 		struct {
 			sexp_t** elem;		/* elem[0..top) are valid */
 			int top, max;
 		} list;
+		struct {
+			char* ptr;			/* point to first char of atom; overlays sexp_t.atom */
+			char* term;			/* (internal) point to NUL term of atom */
+			char  quoted;		/* (internal) true if atom was quoted */
+			char  escaped;		/* (internal) true if atom needs unescaping */
+		} a; /* internal */
 	} ;
 };
 
