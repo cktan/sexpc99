@@ -268,10 +268,10 @@ static char* unescape(char* p, char* q)
 	char* s;
 	for (s = p; p < q; p++) {
 		if (*p == '\\') {
-			const char* const pattern = "btvnfr\"'\\";
-			char* x = strchr(pattern, p[1]);
+			const char* const templ = "btvnfr\"'\\";
+			char* x = strchr(templ, p[1]);
 			if (x) {
-				*s++ = ("\b\t\v\n\f\r\"'\\")[x - pattern];
+				*s++ = ("\b\t\v\n\f\r\"'\\")[x - templ];
 				p++;
 				continue;
 			}
