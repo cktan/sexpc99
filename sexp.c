@@ -12,6 +12,36 @@
 #define E_UNEXPECTED  "unexpected char"
 
 
+static int octval(char* s)
+{
+	int val = 0;
+	const char* p = "01234567";
+	const char* pp = strchr(p, *s++);
+	if (pp) {
+		val = pp - p;
+		pp = strchr(p, *s++);
+	}
+	if (pp) {
+		val = (val << 3) | (pp - p);
+		pp = strchr(p, *s);
+	}
+	return pp ? ((val << 3) | (pp - p)) : -1;
+}
+
+static int hexval(char* s)
+{
+	int val = 0;
+	const char* p = "0123456789ABCDEF";
+	const char* pp = strchr(p, toupper(*s));
+	s++;
+	if (pp) {
+		val = pp - p;
+		pp = strchr(p, toupper(*s));
+	}
+	return pp ? ((val << 4) | (pp - p)) : -1;
+}
+
+
 
 static inline sexp_t* mksexp(sexp_kind_t kind, const char** eb)
 {
@@ -52,21 +82,26 @@ static sexp_t* parse_qstring(char* s, char** e, const char** eb)
 			break;
 		if (*s == '\\') {
 			ex->atom.escaped = 1;
-			switch (s[1]) {
-			case '\\':
-			case '"':
+			if (strchr("btvnfr\"'\\", s[1])) {
 				s++;
 				continue;
-
-			case 'x':
-				if (strchr("0123456789abcdefABCDEF", s[2])
-					&& strchr("0123456789abcdefABCDEF", s[3]))  {
-					s += 3;
-					continue;
-				}
-				break;
 			}
-				
+			if (octval(s+1) >= 0) {
+				s += 3;
+				continue;
+			}
+			if ('x' == s[1] && hexval(s+2) >= 0) {
+				s += 3;
+				continue;
+			}
+			if ('\n' == s[1]) {
+				s += ('\r' == s[2] ? 2 : 1);
+				continue;
+			}
+			if ('\r' == s[1]) {
+				s += ('\n' == s[2] ? 2 : 1);
+				continue;
+			}
 			return reterr(E_BADESCAPE, s, e, eb, ex);
 		}
 	}
@@ -204,11 +239,6 @@ static void location(const char* buf, const char* ptr, int* ret_lineno, int* ret
 	*ret_charno = charno + 1;
 }
 
-static inline int decodehex(int ch)
-{
-	ch = toupper(ch);
-	return (ch >= 'A') ? (ch - 'A' + 10) : (ch - '0');
-}
 
 
 /**
@@ -221,14 +251,22 @@ static char* unescape(char* p, char* q)
 	char* s;
 	for (s = p; p < q; p++) {
 		if (*p == '\\') {
-			switch (p[1]) {
-			case '\\':
-			case '"':
-				*s++ = *(++p);
+			const char* const pattern = "btvnfr\"'\\";
+			char* x = strchr(pattern, p[1]);
+			if (x) {
+				*s++ = ("\b\t\v\n\f\r\"'\\")[x - pattern];
+				p++;
 				continue;
+			}
 
-			case 'x':
-				*s++ = (decodehex(p[2]) << 4) | decodehex(p[3]);
+			if (strchr("01234567", p[1])) {
+				*s++ = octval(p+1);
+				p += 3;
+				continue;
+			}
+
+			if (p[1] == 'x') {
+				*s++ = hexval(p+2);
 				p += 3;
 				continue;
 			}

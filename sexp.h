@@ -5,11 +5,9 @@
  * Atoms are either quoted or not quoted.
  *
  * Quoted atom allows the following escapes:
- *   1. backslash:    \\
- *   2. double-quote: \" 
- *   3. hexcode:      \x00 
- *
- * Everything else is considered an error, including \n and friends.
+ *   \b \t \v \n \f \r \" \' \\ \<CR> \<LF> \<CRLF> \<LFCR>
+ *   \ooo -- octal value ooo
+ *   \xhh -- hex value hh
  *
  * Unquoted atom allows [a-zA-Z0-9] and the following chars:
  *     - . / _ : * + = 
