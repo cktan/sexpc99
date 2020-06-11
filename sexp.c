@@ -41,6 +41,13 @@ static int hexval(char* s)
 	return pp ? ((val << 4) | (pp - p)) : -1;
 }
 
+static int wspace(const char* s)
+{
+	const char* p;
+	for (p = s; isspace(*p); p++);
+	return p - s;
+}
+
 
 
 static inline sexp_t* mksexp(sexp_kind_t kind, const char** eb)
@@ -347,7 +354,7 @@ sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen)
 	const char* eb = 0;
 
 	// skip whitespace
-	for ( ; *s && isspace(*s); s++);
+	s += wspace(s);
 
 	// parse
 	if (*s == '(') 
@@ -365,7 +372,7 @@ sexp_t* sexp_parse(char* buf, char* errmsg, int errmsglen)
 	}
 
 	// skip whitespace
-	for (s = e; *s && isspace(*s); s++);
+	s = e + wspace(e);
 
 	// if not at end of buffer, we have unexpected chars.
 	if (*s) {
