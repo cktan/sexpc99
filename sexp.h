@@ -34,7 +34,8 @@ struct sexp_t {
 typedef struct sexp_err_t sexp_err_t;
 struct sexp_err_t {
 	int errno;
-	char errmsg[80];
+	const char* errmsg;
+	char location[20];
 };
 
 

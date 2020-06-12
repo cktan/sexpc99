@@ -238,10 +238,10 @@ static sexp_t* parse_list(char* s, char** e, int* perr)
 
 
 /**
- *  Given a ptr into buf[], determine the lineno and charno of the
- *  char pointed by ptr in buf[]
+ *  Fill in sexp_err_t. Given a ptr into buf[], determine the lineno
+ *  and charno of the char pointed by ptr in buf[].
  */
-static void location(const char* buf, const char* ptr, int* ret_lineno, int* ret_charno)
+static sexp_t* fill_err(sexp_err_t* err, const char* buf, const char* ptr)
 {
 	int lineno, charno;
 	lineno = charno = 0;
@@ -251,9 +251,10 @@ static void location(const char* buf, const char* ptr, int* ret_lineno, int* ret
 			charno = 0;
 		}
 	}
-
-	*ret_lineno = lineno + 1;
-	*ret_charno = charno + 1;
+	
+	sprintf(err->location, "L%d.%d", lineno+1, charno+1);
+	err->errmsg = errstr(err->errno);
+	return 0;
 }
 
 
@@ -267,43 +268,50 @@ static char* unescape(char* p, char* q)
 {
 	char* s;
 	for (s = p; p < q; p++) {
-		if (*p == '\\') {
-			const char* const templ = "btvnfr\"'\\";
-			char* x = strchr(templ, p[1]);
-			if (x) {
-				*s++ = ("\b\t\v\n\f\r\"'\\")[x - templ];
-				p++;
-				continue;
-			}
-
-			if (strchr("01234567", p[1])) {
-				*s++ = octval(p+1);
-				p += 3;
-				continue;
-			}
-
-			if (p[1] == 'x') {
-				*s++ = hexval(p+2);
-				p += 3;
-				continue;
-			}
-
-			if (p[1] == '\n') {
-				*s++ = '\n';
-				p += ('\r' == p[2]) ? 2 : 1;
-				continue;
-			}
-
-			if (p[1] == '\r') {
-				*s++ = '\n';
-				p += ('\n' == p[2]) ? 2 : 1;
-				continue;
-			}
-
-			fprintf(stderr, "panic at %s:%d", __FILE__, __LINE__);
-			exit(1);
+		if (*p != '\\') {
+			*s++ = *p;
+			continue;
 		}
-		*s++ = *p;
+
+		/* check for escape chars */
+		const char* const templ = "btvnfr\"'\\";
+		char* x = strchr(templ, p[1]);
+		if (x) {
+			*s++ = ("\b\t\v\n\f\r\"'\\")[x - templ];
+			p++;
+			continue;
+		}
+
+		/* check for \ooo */
+		if (strchr("01234567", p[1])) {
+			*s++ = octval(p+1);
+			p += 3;
+			continue;
+		}
+
+		/* check for \xhh */
+		if (p[1] == 'x') {
+			*s++ = hexval(p+2);
+			p += 3;
+			continue;
+		}
+
+		/* check for <CR> and <CR><LF> */
+		if (p[1] == '\n') {
+			*s++ = '\n';
+			p += ('\r' == p[2]) ? 2 : 1;
+			continue;
+		}
+
+		/* check for <LF> and <LF><CR> */
+		if (p[1] == '\r') {
+			*s++ = '\n';
+			p += ('\n' == p[2]) ? 2 : 1;
+			continue;
+		}
+
+		fprintf(stderr, "panic at %s:%d", __FILE__, __LINE__);
+		exit(1);
 	}
 	*s = 0;
 	return s;
@@ -366,10 +374,7 @@ sexp_t* sexp_parse(char* buf, sexp_err_t* err)
 		ex = parse_symbol(s, &e, &err->errno);
 
 	if (!ex) {
-		int lineno, charno;
-		location(buf, e, &lineno, &charno);
-		snprintf(err->errmsg, sizeof(err->errmsg), "%s at L%d.%d", errstr(err->errno), lineno, charno);
-		return 0;
+		return fill_err(err, buf, e);
 	}
 
 	// skip whitespace
@@ -377,12 +382,8 @@ sexp_t* sexp_parse(char* buf, sexp_err_t* err)
 
 	// if not at end of buffer, we have unexpected chars.
 	if (*s) {
-		int lineno, charno;
 		sexp_free(ex);
-		location(buf, s, &lineno, &charno);
-		err->errno = SEXP_EINVALID;
-		snprintf(err->errmsg, sizeof(err->errmsg), "%s at L%d.%d", errstr(err->errno), lineno, charno);
-		return 0;
+		return fill_err(err, buf, e);
 	}
 
 	return touchup(ex);
