@@ -1,3 +1,15 @@
+/*
+  SEXPC99 - S-Expression parser in C
+  Copyright (c) 2019-2020 CK Tan
+  cktanx@gmail.com
+
+  SEXPC99 can be used for free under the GNU General Public License
+  version 3, where anything released into public must be open source,
+  or under a commercial license. The commercial license does not
+  cover derived or ported versions created by third parties under
+  GPL. To inquire about commercial license, please send email to
+  cktanx@gmail.com.
+*/
 #ifndef SEXP_H
 #define SEXP_H
 

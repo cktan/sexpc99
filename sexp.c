@@ -1,3 +1,15 @@
+/*
+  SEXPC99 - S-Expression parser in C
+  Copyright (c) 2019-2020 CK Tan
+  cktanx@gmail.com
+
+  SEXPC99 can be used for free under the GNU General Public License
+  version 3, where anything released into public must be open source,
+  or under a commercial license. The commercial license does not
+  cover derived or ported versions created by third parties under
+  GPL. To inquire about commercial license, please send email to
+  cktanx@gmail.com.
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -355,6 +367,8 @@ sexp_t* sexp_parse(char* buf, sexp_err_t* err)
 	char* sp = buf;
 	char* ep = 0;
 	sexp_t* ex = 0;
+
+	memset(err, 0, sizeof(*err));
 
 	// skip whitespace
 	sp += wspace(sp);
