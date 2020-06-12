@@ -334,7 +334,7 @@ static sexp_t* touchup(sexp_t* ex)
 			p[ex->len -= 2] = 0;
 			// unescape
 			if (ex->flag & SEXP_FLAG_ESCAPED) {
-				unescape(p, p + ex->len);
+				ex->len = unescape(p, p + ex->len) - p;
 			}
 		}
 	}
