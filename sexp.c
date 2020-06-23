@@ -37,7 +37,7 @@ static int match(const char* templ, char ch)
 	return p ? p - templ : -1;
 }
 
-/* return octal value of s[0],s[1],s[2]. -1 if invalid. */
+/* return octal value of s[0],s[1],s[2], or -1 if invalid. */
 static int octval(char* s)
 {
 	const char* templ = "01234567";
@@ -50,7 +50,7 @@ static int octval(char* s)
 	return val;
 }
 
-/* return hex value of s[0],s[1]. -1 if invalid. */
+/* return hex value of s[0],s[1], or -1 if invalid. */
 static int hexval(char* s)
 {
 	const char* templ = "0123456789ABCDEF";
@@ -62,11 +62,9 @@ static int hexval(char* s)
 }
 
 /* return # whitespaces at start of s */
-static int wspace(const char* s)
+static inline int wspace(const char* s)
 {
-	const char* p;
-	for (p = s; isspace(*p); p++);
-	return p - s;
+	return strspn(s, " \t\r\n");
 }
 
 
@@ -95,7 +93,7 @@ static sexp_t* reterr(int err, const char* s, char** e, int* perr, sexp_t* ex)
  *  On success, return the s-exp; also the start of next expression in e.
  *  On error, return NULL, and the error message in eb.
  */
-static sexp_t* parse_qstring(char* sp, char** ep, int* perr)
+static sexp_t* parse_qstring(char* sp, char** pep, int* perr)
 {
 	assert(*sp == '"');
 	
@@ -130,17 +128,17 @@ static sexp_t* parse_qstring(char* sp, char** ep, int* perr)
 				sp += ('\n' == sp[2]) ? 2 : 1;
 				continue;
 			}
-			return reterr(SEXP_EBADESCAPE, sp, ep, perr, ex);
+			return reterr(SEXP_EBADESCAPE, sp, pep, perr, ex);
 		}
 	}
 
 	if (*sp != '"') {
-		return reterr(SEXP_EENDQUOTE, sp, ep, perr, ex);
+		return reterr(SEXP_EENDQUOTE, sp, pep, perr, ex);
 	}
 	
 	sp++;
 	ex->len = sp - ex->atom;
-	*(const char**) ep = sp;
+	*(const char**) pep = sp;
 	return ex;
 }
 
@@ -150,7 +148,7 @@ static sexp_t* parse_qstring(char* sp, char** ep, int* perr)
  *  On success, return the s-exp; also the start of next expression in e.
  *  On error, return NULL, and the error message in eb.
  */
-static sexp_t* parse_symbol(char* sp, char** ep, int* perr)
+static sexp_t* parse_symbol(char* sp, char** pep, int* perr)
 {
 	sexp_t* ex = mksexp(perr);
 	if (!ex)
@@ -162,15 +160,15 @@ static sexp_t* parse_symbol(char* sp, char** ep, int* perr)
 			break;
 		if (isalnum(*sp) || strchr("-./_:*+=", *sp))
 			continue;
-		return reterr(SEXP_EBADSYMBOL, sp, ep, perr, ex);
+		return reterr(SEXP_EBADSYMBOL, sp, pep, perr, ex);
 	}
 
 	if (sp == ex->atom) {
-		return reterr(SEXP_EBADSYMBOL, sp, ep, perr, ex);
+		return reterr(SEXP_EBADSYMBOL, sp, pep, perr, ex);
 	}
 
 	ex->len = sp - ex->atom;
-	*(const char**) ep = sp;
+	*(const char**) pep = sp;
 	return ex;
 }
 
@@ -200,7 +198,7 @@ static sexp_t* append(sexp_t* ex, sexp_t* kid)
  *  On success, return the s-exp; also the start of next expression in e.
  *  On error, return NULL, and the error message in eb.
  */
-static sexp_t* parse_list(char* sp, char** ep, int* perr)
+static sexp_t* parse_list(char* sp, char** pep, int* perr)
 {
 	assert(*sp == '(');
 	
@@ -218,11 +216,11 @@ static sexp_t* parse_list(char* sp, char** ep, int* perr)
 		/* parse a child */
 		sexp_t* kid = 0;
 		if (*sp == '"') 
-			kid = parse_qstring(sp, ep, perr);
+			kid = parse_qstring(sp, pep, perr);
 		else if (*sp == '(') 
-			kid = parse_list(sp, ep, perr);
+			kid = parse_list(sp, pep, perr);
 		else 
-			kid = parse_symbol(sp, ep, perr);
+			kid = parse_symbol(sp, pep, perr);
 		
 		if (! kid) {
 			sexp_free(ex);
@@ -231,14 +229,14 @@ static sexp_t* parse_list(char* sp, char** ep, int* perr)
 
 		/* add to tail */
 		if (! append(ex, kid)) {
-			return reterr(SEXP_EOUTOFMEMORY, sp, ep, perr, ex);
+			return reterr(SEXP_EOUTOFMEMORY, sp, pep, perr, ex);
 		}
 
 		/* move forward to next kid */
-		sp = *ep;
+		sp = *pep;
 	}
 
-	*(const char**) ep = sp;
+	*(const char**) pep = sp;
 	return ex;
 }
 
